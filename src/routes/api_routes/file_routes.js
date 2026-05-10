@@ -1,7 +1,7 @@
 import express from "express";
 
 import {
-  getUserFilesController, getFileByIdController
+  getUserFilesController, getFileByIdController, downloadFileController
 } from "../../controllers/file_controller.js";
 
 import {
@@ -20,6 +20,11 @@ router.get(
   "/:id",
   ensureAuthenticated,
   getFileByIdController
+);
+
+router.get(
+  "/download/:id",
+  downloadFileController,
 );
 
 export default router;
