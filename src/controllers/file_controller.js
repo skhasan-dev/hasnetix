@@ -1,6 +1,7 @@
 import {
-    getFileByIdServices,
-  getUserFilesService
+  getFileByIdServices,
+  getUserFilesService,
+  downloadFileService,
 } from "../services/file_services.js";
 
 export const getUserFilesController = async (
@@ -40,7 +41,7 @@ export const getFileByIdController = async (
 
     const file =
       await getFileByIdServices({
-        fileId:id,
+        fileId: id,
       });
 
     res.status(200).json({
@@ -50,5 +51,36 @@ export const getFileByIdController = async (
 
   } catch (err) {
     next(err);
+  }
+};
+
+export const downloadFileController = async (
+  req,
+  res,
+  next
+) => {
+
+  try {
+
+    const result =
+      await downloadFileService({
+        fileId: req.params.fileId
+      });
+
+    // cloudinary
+    if (result.type === "redirect") {
+      return res.redirect(result.url);
+    }
+
+    // other providers
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="${result.fileName}"`
+    );
+
+    return res.redirect(result.url);
+
+  } catch (error) {
+    next(error);
   }
 };
