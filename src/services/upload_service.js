@@ -10,7 +10,7 @@ import {
 } from "../models/index.js";
 
 import {
-  getFileType
+  getFileType, getDeleteTime, getExpiryTime
 } from "../utils/file_utils.js";
 
 import {
@@ -86,17 +86,9 @@ export const uploadFileService = async ({
       .replace(/-/g, "")
       .slice(0, 12);
 
-    // 8 hours
-    const expiresAt = new Date(
-      Date.now() +
-      8 * 60 * 60 * 1000
-    );
+    const expiresAt = getExpiryTime();
 
-    // 3 days
-    const deleteAt = new Date(
-      Date.now() +
-      3 * 24 * 60 * 60 * 1000
-    );
+    const deleteAt = getDeleteTime();
 
     const savedFile =
       await File.create({
@@ -145,10 +137,7 @@ export const uploadFileService = async ({
     if (savedFile) {
 
       const category =
-        Object.values(FILE_TYPES)
-          .includes(fileType)
-          ? fileType
-          : FILE_TYPES.OTHER;
+        fileType || FILE_TYPES.OTHER;
 
       const storageDoc =
         await UserStorage.findOneAndUpdate(

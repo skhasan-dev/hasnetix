@@ -17,45 +17,103 @@ import {
 
 cron.schedule("*/10 * * * *", async () => {
 
-  console.log("Running file expiry cleanup...");
+  console.log(
+    "Running file cleanup..."
+  );
 
-  const expiredFiles = await File.find({
-    status: FILE_STATUS.ACTIVE,
-    expiresAt: { $lte: new Date() }
-  });
+  const now = new Date();
 
-  for (const file of expiredFiles) {
+  // expire files
+  try {
 
-    try {
+    const expiredResult =
+      await File.updateMany(
 
-      if (
-        file.provider === FILE_PROVIDERS.CLOUDINARY
-      ) {
+        {
+          status:
+            FILE_STATUS.ACTIVE,
 
-        await deleteFromCloudinary(file.key);
-
-      } else {
-
-        await deleteFromR2(file.key);
-      }
-
-      await File.updateOne(
-        { _id: file._id },
+          expiresAt: {
+            $lte: now
+          }
+        },
 
         {
           $set: {
-            status: FILE_STATUS.EXPIRED,
-            url: null
+            status:
+              FILE_STATUS.EXPIRED
           }
         }
       );
 
-    } catch (error) {
+    console.log(
+      `Expired ${expiredResult.modifiedCount} files`
+    );
 
-      console.error(
-        `Failed to expire file ${file.fileId}`,
-        error
-      );
+  } catch (error) {
+
+    console.error(
+      "Failed to expire files",
+      error
+    );
+  }
+
+  // permanently delete files
+  try {
+
+    const filesToDelete =
+      await File.find({
+
+        deleteAt: {
+          $lte: now
+        }
+      });
+
+    for (const file of filesToDelete) {
+
+      try {
+
+        if (
+          file.provider ===
+          FILE_PROVIDERS.CLOUDINARY
+        ) {
+
+          await deleteFromCloudinary(
+            file.key
+          );
+
+        } else if (
+          file.provider ===
+          FILE_PROVIDERS.R2
+        ) {
+
+          await deleteFromR2(
+            file.key
+          );
+        }
+
+        await File.deleteOne({
+          _id: file._id
+        });
+
+        console.log(
+          `Deleted file ${file.fileId}`
+        );
+
+      } catch (error) {
+
+        console.error(
+          `Failed to delete file ${file.fileId}`,
+          error
+        );
+      }
     }
+
+  } catch (error) {
+
+    console.error(
+      "Failed to fetch delete files",
+      error
+    );
   }
 });

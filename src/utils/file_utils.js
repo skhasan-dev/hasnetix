@@ -17,9 +17,44 @@ export const getFileType = (mimeType) => {
   return FILE_TYPES.OTHER;
 };
 
-export const getExpiryDate = (hours = 8) => {
+const IS_STAGE =
+  process.env.FLAVOR === "stage";
+
+export const getExpiryTime = (
+  hours = 8
+) => {
+
+  // stage -> 5 mins
+  if (IS_STAGE) {
+
+    return new Date(
+      Date.now() + 5 * 60 * 1000
+    );
+  }
+
+  // prod
   return new Date(
-    Date.now() + hours * 60 * 60 * 1000
+    Date.now() +
+    hours * 60 * 60 * 1000
+  );
+};
+
+export const getDeleteTime = (
+  hours = 72
+) => {
+
+  // stage -> 15 mins
+  if (IS_STAGE) {
+
+    return new Date(
+      Date.now() + 15 * 60 * 1000
+    );
+  }
+
+  // prod
+  return new Date(
+    Date.now() +
+    hours * 60 * 60 * 1000
   );
 };
 
