@@ -1,24 +1,56 @@
-import { getUserService } from "../services/user_service.js";
+import { AppError } from "../utils/app_error.js";
 
-export const getUserController = async (req, res, next) => {
+import {
+  getUserService
+} from "../services/user_service.js";
+
+export const getUserController = async (
+  req,
+  res
+) => {
+
   try {
+
     const { id } = req.params;
 
     if (!id) {
-      return res.status(401).json({
-        success: false,
-        message: "Unauthorized",
-      });
+      throw new AppError(
+        401,
+        "Unauthorized"
+      );
     }
 
-    const user = await getUserService({ userId : id });
+    const user =
+      await getUserService({
+        userId: id
+      });
 
-    res.status(200).json({
-      success: true,
-      data: user,
+    return res.status(200).json({
+
+      status: true,
+
+      message:
+        "User fetched successfully",
+
+      data: user
     });
 
-  } catch (err) {
-    next(err);
+  } catch (error) {
+
+    return res.status(
+      error.statusCode || 500
+    ).json({
+
+      status: false,
+
+      message:
+        error.message ||
+        "Internal Server Error",
+
+      // stack:
+      //   process.env.NODE_ENV === "development"
+      //     ? error.stack
+      //     : undefined
+    });
   }
 };

@@ -15,7 +15,7 @@ import {
   deleteFromR2
 } from "../services/cloudflare_service.js";
 
-cron.schedule("0 * * * *", async () => {
+cron.schedule("*/10 * * * *", async () => {
 
   console.log("Running file expiry cleanup...");
 

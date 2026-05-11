@@ -24,6 +24,20 @@ export const authenticateController = async (req, res, next) => {
     });
 
   } catch (err) {
-    next(err);
+    return res.status(
+      error.statusCode || 500
+    ).json({
+
+      status: false,
+
+      message:
+        error.message ||
+        "Internal Server Error",
+
+      // stack:
+      //   process.env.NODE_ENV === "development"
+      //     ? error.stack
+      //     : undefined
+    });
   }
 };

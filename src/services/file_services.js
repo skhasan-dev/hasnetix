@@ -1,56 +1,74 @@
 import { File } from "../models/index.js";
+import { FILE_STATUS, FILE_PROVIDERS } from "../utils/const/enums.js";
+import { generateDownloadUrl } from "../utils/file_utils.js";
+import { AppError } from "../utils/app_error.js";
+import { deleteFromCloudinary } from "./cloudinary_service.js";
+import { deleteFromR2 } from "./cloudflare_service.js";
 
 export const getUserFilesService = async ({
   userId
 }) => {
 
-  if (!userId) {
-    throw {
-      status: 401,
-      message: "Unauthorized"
-    };
-  }
+  try {
 
-  const files = await File.find({
-    userId
-  })
-    .sort({ createdAt: -1 })
-    .select(
-      `
-      fileId
+    if (!userId) {
+      throw new AppError(
+        401,
+        "Unauthorized"
+      );
+    }
+
+    const files = await File.find({
       userId
-      originalName
-      url
-      fileType
-      size
-      status
-      expiresAt
-      createdAt
-      `
-    );
+    })
+      .sort({ createdAt: -1 })
+      .select(
+        `
+        fileId
+        userId
+        originalName
+        downloadUrl
+        fileType
+        size
+        status
+        expiresAt
+        createdAt
+        `
+      );
 
-  return files;
+    return files;
+
+  } catch (error) {
+
+    throw new AppError(
+      error.statusCode || 500,
+      error.message || "Failed to fetch user files",
+      error.stack
+    );
+  }
 };
 
-export const getFileByIdServices = async ({
+export const getFileByIdService = async ({
   fileId
 }) => {
 
-  if (!fileId) {
-    throw {
-      status: 404,
-      message: "File Not Found"
-    };
-  }
+  try {
 
-  const file = await File.findOne({
-    fileId
-  }).select(
+    if (!fileId) {
+      throw new AppError(
+        404,
+        "File Not Found"
+      );
+    }
+
+    const file = await File.findOne({
+      fileId
+    }).select(
       `
       fileId
       userId
       originalName
-      url
+      downloadUrl
       fileType
       size
       status
@@ -59,5 +77,184 @@ export const getFileByIdServices = async ({
       `
     );
 
-  return file;
+    if (!file) {
+      throw new AppError(
+        404,
+        "File Not Found"
+      );
+    }
+
+    return file;
+
+  } catch (error) {
+
+    throw new AppError(
+      error.statusCode || 500,
+      error.message || "Failed to fetch file",
+      error.stack
+    );
+  }
+};
+
+export const deleteFileByIdService = async ({
+  fileId
+}) => {
+
+  try {
+
+    if (!fileId) {
+      throw new AppError(
+        404,
+        "File Not Found"
+      );
+    }
+
+    const file = await File.findOne({
+      fileId
+    });
+
+    if (!file) {
+      throw new AppError(
+        404,
+        "File Not Found"
+      );
+    }
+
+    // delete from storage
+    if (file.provider === FILE_PROVIDERS.CLOUDINARY) {
+
+      await deleteFromCloudinary(
+        file.key,
+        "auto"
+      );
+
+    } else if (file.provider === FILE_PROVIDERS.R2) {
+
+      await deleteFromR2(
+        file.key
+      );
+    }
+
+    // delete from db
+    await File.deleteOne({
+      fileId
+    });
+
+    return true;
+
+  } catch (error) {
+
+    throw new AppError(
+      error.statusCode || 500,
+      error.message || "Failed to delete file",
+      error.stack
+    );
+  }
+};
+
+export const deleteUserFilesService = async ({
+  userId
+}) => {
+
+  try {
+
+    if (!userId) {
+      throw new AppError(
+        401,
+        "Unauthorized"
+      );
+    }
+
+    const files = await File.find({
+      userId
+    });
+
+    for (const file of files) {
+
+      if (file.provider === FILE_PROVIDERS.CLOUDINARY) {
+
+        await deleteFromCloudinary(
+          file.key,
+          "auto"
+        );
+
+      } else if (file.provider === FILE_PROVIDERS.R2) {
+
+        await deleteFromR2(
+          file.key
+        );
+      }
+    }
+
+    await File.deleteMany({
+      userId
+    });
+
+    return true;
+
+  } catch (error) {
+
+    throw new AppError(
+      error.statusCode || 500,
+      error.message || "Failed to delete user files",
+      error.stack
+    );
+  }
+};
+
+export const downloadFileService = async ({
+  fileId
+}) => {
+
+  try {
+
+    if (!fileId) {
+      throw new AppError(
+        400,
+        "File ID is required"
+      );
+    }
+
+    const file = await File.findOne({
+      fileId
+    });
+
+    if (!file) {
+      throw new AppError(
+        404,
+        "File not found"
+      );
+    }
+
+    if (file.status !== FILE_STATUS.ACTIVE) {
+      throw new AppError(
+        410,
+        "Link expired"
+      );
+    }
+
+    // increment download count
+    file.downloadCount += 1;
+
+    await file.save();
+
+    const { url, type } =
+      await generateDownloadUrl(file);
+
+    return {
+      type,
+
+      url,
+
+      fileName: file.originalName
+    };
+
+  } catch (error) {
+
+    throw new AppError(
+      error.statusCode || 500,
+      error.message || "Failed to download file",
+      error.stack
+    );
+  }
 };

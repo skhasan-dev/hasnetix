@@ -1,14 +1,9 @@
-// services/r2.service.js
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { default as s3 } from "../../config/cloudflare.js";
+import dotenv from "dotenv";
 
-const s3 = new S3Client({
-  region: "auto",
-  endpoint: process.env.R2_ENDPOINT,
-  credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY,
-    secretAccessKey: process.env.R2_SECRET_KEY
-  }
-});
+dotenv.config();
 
 export const uploadToR2 = async (file) => {
   const key = `${Date.now()}-${file.originalname}`;
@@ -24,6 +19,30 @@ export const uploadToR2 = async (file) => {
     url: `${process.env.R2_PUBLIC_URL}/${key}`,
     key
   };
+};
+
+export const generateR2DownloadUrl = async (
+  key,
+  fileName
+) => {
+
+  const command = new GetObjectCommand({
+    Bucket: process.env.R2_BUCKET,
+    Key: key,
+
+    ResponseContentDisposition:
+      `attachment; filename="${fileName}"`
+  });
+
+  const signedUrl = await getSignedUrl(
+    s3,
+    command,
+    {
+      expiresIn: 60 * 5 // 5 min
+    }
+  );
+
+  return signedUrl;
 };
 
 export const deleteFromR2 = async (key) => {
