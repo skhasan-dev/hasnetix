@@ -29,6 +29,11 @@ const fileSchema = new mongoose.Schema({
     required: true
   },
 
+  downloadUrl: {
+    type: String,
+    required: true
+  },
+
   key: {
     type: String
   },
@@ -43,7 +48,6 @@ const fileSchema = new mongoose.Schema({
     required: true
   },
 
-  // 👇 normalized type (VERY USEFUL)
   fileType: {
     type: String,
     enum: Object.values(FILE_TYPES),

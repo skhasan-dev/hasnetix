@@ -1,4 +1,7 @@
 import { uploadFileService } from "../services/upload_service.js";
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 export const uploadFileController = async (
   req,
@@ -27,13 +30,27 @@ export const uploadFileController = async (
         originalName: uploadedFile.originalName,
         fileType: uploadedFile.fileType,
         size: uploadedFile.size,
-        url: uploadedFile.url,
+        downloadUrl: process.env.API_BASE_URL+'files/download/'+uploadedFile.fileId, ///uploadedFile.downloadUrl
         expiresAt: uploadedFile.expiresAt,
         createdAt: uploadedFile.createdAt
       }
     });
 
   } catch (err) {
-    next(err);
+    return res.status(
+      error.statusCode || 500
+    ).json({
+
+      status: false,
+
+      message:
+        error.message ||
+        "Internal Server Error",
+
+      // stack:
+      //   process.env.NODE_ENV === "development"
+      //     ? error.stack
+      //     : undefined
+    });
   }
 };

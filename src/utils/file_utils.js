@@ -1,4 +1,5 @@
-import { FILE_TYPES } from "./const/enums.js";
+import { FILE_TYPES, FILE_PROVIDERS } from "./const/enums.js";
+import { generateR2DownloadUrl } from "../services/cloudflare_service.js";
 
 export const getFileType = (mimeType) => {
   if (mimeType.startsWith("image/")) {
@@ -21,3 +22,36 @@ export const getExpiryDate = (hours = 8) => {
     Date.now() + hours * 60 * 60 * 1000
   );
 };
+
+export const generateDownloadUrl = async (file) => {
+
+  if(!file) throw {'error': 'File Not Found'}
+
+  if (file.provider === FILE_PROVIDERS.CLOUDINARY) {
+
+    const downloadUrl =
+      file.url.replace(
+        "/upload/",
+        "/upload/fl_attachment/"
+      );
+
+    return {
+      type: "redirect",
+      url: downloadUrl
+    };
+  }
+
+  if (file.provider === FILE_PROVIDERS.R2) {
+    const downloadUrl =
+      await generateR2DownloadUrl(
+        file.key,
+        file.originalName
+      );
+
+    return {
+      type: "redirect",
+      url: downloadUrl,
+      fileName: file.originalName
+    };
+  }
+}
