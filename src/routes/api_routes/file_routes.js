@@ -1,7 +1,7 @@
 import express from "express";
 
 import {
-  getUserFilesController, getFileByIdController, downloadFileController
+  getUserFilesController, getFileByIdController, downloadFileController, deleteUserFilesController, deleteFileByIdController,
 } from "../../controllers/file_controller.js";
 
 import {
@@ -16,10 +16,22 @@ router.get(
   getUserFilesController
 );
 
+router.delete(
+  "/",
+  ensureAuthenticated,
+  deleteUserFilesController
+);
+
 router.get(
   "/:id",
   ensureAuthenticated,
   getFileByIdController
+);
+
+router.delete(
+  "/:id",
+  ensureAuthenticated,
+  deleteFileByIdController
 );
 
 router.get(

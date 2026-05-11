@@ -1,4 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
+import dotenv from "dotenv";
+
+dotenv.config();
 
 import {
   File,
@@ -10,8 +13,13 @@ import {
   getFileType
 } from "../utils/file_utils.js";
 
-import { uploadToCloudinary } from "./cloudinary_service.js";
-import { uploadToR2 } from "./cloudflare_service.js";
+import {
+  uploadToCloudinary
+} from "./cloudinary_service.js";
+
+import {
+  uploadToR2
+} from "./cloudflare_service.js";
 
 import {
   FILE_PROVIDERS,
@@ -19,137 +27,185 @@ import {
   FILE_STATUS
 } from "../utils/const/enums.js";
 
+import {
+  AppError
+} from "../utils/app_error.js";
+
 export const uploadFileService = async ({
   file,
   userId
 }) => {
 
-  if (!file) {
-    throw {
-      status: 400,
-      message: "No file uploaded"
-    };
-  }
+  try {
 
-  if (!userId) {
-    throw {
-      status: 401,
-      message: "Unauthorized"
-    };
-  }
+    if (!file) {
+      throw new AppError(
+        400,
+        "No file uploaded"
+      );
+    }
 
-  const fileType = getFileType(file.mimetype);
+    if (!userId) {
+      throw new AppError(
+        401,
+        "Unauthorized"
+      );
+    }
 
-  let uploadResult;
-  let provider;
+    const fileType =
+      getFileType(file.mimetype);
 
-  // smart routing
-  if (
-    fileType === FILE_TYPES.IMAGE ||
-    fileType === FILE_TYPES.VIDEO
-  ) {
+    let uploadResult;
 
-    uploadResult = await uploadToCloudinary(
-      file.buffer
+    let provider;
+
+    // smart routing
+    if (
+      fileType === FILE_TYPES.IMAGE ||
+      fileType === FILE_TYPES.VIDEO
+    ) {
+
+      uploadResult =
+        await uploadToCloudinary(
+          file.buffer
+        );
+
+      provider =
+        FILE_PROVIDERS.CLOUDINARY;
+
+    } else {
+
+      uploadResult =
+        await uploadToR2(file);
+
+      provider =
+        FILE_PROVIDERS.R2;
+    }
+
+    const fileId = uuidv4()
+      .replace(/-/g, "")
+      .slice(0, 12);
+
+    // 8 hours
+    const expiresAt = new Date(
+      Date.now() +
+      8 * 60 * 60 * 1000
     );
 
-    provider = FILE_PROVIDERS.CLOUDINARY;
+    // 3 days
+    const deleteAt = new Date(
+      Date.now() +
+      3 * 24 * 60 * 60 * 1000
+    );
 
-  } else {
+    const savedFile =
+      await File.create({
 
-    uploadResult = await uploadToR2(file);
+        fileId,
 
-    provider = FILE_PROVIDERS.R2;
-  }
+        originalName:
+          file.originalname,
 
-  const fileId = uuidv4()
-    .replace(/-/g, "")
-    .slice(0, 12);
+        fileName:
+          uploadResult.public_id ||
+          uploadResult.key,
 
-  // 8 hours
-  const expiresAt = new Date(
-    Date.now() + 8 * 60 * 60 * 1000
-  );
+        provider,
 
-  // 3 days
-  const deleteAt = new Date(
-    Date.now() + 3 * 24 * 60 * 60 * 1000
-  );
+        url:
+          uploadResult.secure_url ||
+          uploadResult.url,
 
-  const savedFile = await File.create({
-    fileId,
+        downloadUrl:
+          process.env.API_BASE_URL +
+          "files/download/" +
+          fileId,
 
-    originalName: file.originalname,
+        key:
+          uploadResult.public_id ||
+          uploadResult.key,
 
-    fileName:
-      uploadResult.public_id ||
-      uploadResult.key,
+        size: file.size,
 
-    provider,
+        mimeType:
+          file.mimetype,
 
-    url:
-      uploadResult.secure_url ||
-      uploadResult.url,
+        fileType,
 
-    key:
-      uploadResult.public_id ||
-      uploadResult.key,
+        userId,
 
-    size: file.size,
+        expiresAt,
 
-    mimeType: file.mimetype,
+        deleteAt,
 
-    fileType,
+        status:
+          FILE_STATUS.ACTIVE
+      });
 
-    userId,
+    if (savedFile) {
 
-    expiresAt,
+      const category =
+        Object.values(FILE_TYPES)
+          .includes(fileType)
+          ? fileType
+          : FILE_TYPES.OTHER;
 
-    deleteAt,
+      const storageDoc =
+        await UserStorage.findOneAndUpdate(
 
-    status: FILE_STATUS.ACTIVE
-  });
+          { userId },
 
-  if (savedFile) {
+          {
+            $inc: {
+              [`${category}.used`]:
+                file.size,
 
-    const category =
-      Object.values(FILE_TYPES).includes(fileType)
-        ? fileType
-        : FILE_TYPES.OTHER;
+              [`${category}.count`]:
+                1,
 
-    const storageDoc =
-      await UserStorage.findOneAndUpdate(
+              totalUsed:
+                file.size
+            }
+          },
+
+          {
+            upsert: true,
+
+            new: true,
+
+            setDefaultsOnInsert: true
+          }
+        );
+
+      await User.findOneAndUpdate(
+
         { userId },
 
         {
           $inc: {
-            [`${category}.used`]: file.size,
-            [`${category}.count`]: 1,
-            totalUsed: file.size
-          }
-        },
+            monthlyUsage:
+              file.size
+          },
 
-        {
-          upsert: true,
-          new: true,
-          setDefaultsOnInsert: true
+          $set: {
+            storage:
+              storageDoc._id
+          }
         }
       );
+    }
 
-    await User.findOneAndUpdate(
-      { userId },
+    return savedFile;
 
-      {
-        $inc: {
-          monthlyUsage: file.size
-        },
+  } catch (error) {
 
-        $set: {
-          storage: storageDoc._id
-        }
-      }
+    throw new AppError(
+      error.statusCode || 500,
+
+      error.message ||
+      "Failed to upload file",
+
+      error.stack
     );
   }
-
-  return savedFile;
 };
