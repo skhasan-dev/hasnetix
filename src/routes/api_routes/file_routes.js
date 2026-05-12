@@ -36,6 +36,7 @@ router.delete(
 
 router.get(
   "/download/:id",
+  ensureAuthenticated,
   downloadFileController,
 );
 

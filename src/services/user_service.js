@@ -1,14 +1,15 @@
 import { User } from "../models/index.js";
+import { AppError } from "../utils/app_error.js";
 
 export const getUserService = async ({ userId }) => {
   if (!userId) {
     throw new AppError(
-      401,
-      "Unauthorized"
+      400,
+      "User ID is required"
     );
   }
 
-  const user = await User.findOne({ userId }).populate("storage");;
+  const user = await User.findOne({ userId }).populate("storage");
 
   if (!user) {
     throw new AppError(

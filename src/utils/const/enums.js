@@ -21,3 +21,14 @@ export const FILE_STATUS = Object.freeze({
   EXPIRED: "expired",
   DELETED: "deleted"
 });
+
+export const PAIRING_STATUS = {
+  PENDING:  'pending',   
+  ACTIVE:   'active',    
+  EXPIRED:  'expired',  
+};
+
+export const DEVICE_TYPE = Object.freeze({
+  MOBILE: "mobile",
+  DESKTOP: "desktop",
+});

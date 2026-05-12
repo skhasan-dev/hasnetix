@@ -1,9 +1,14 @@
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 
-import { User } from "../models/index.js";
+import {
+  User,
+  Device,
+} from "../models/index.js";
 
-import { USER_TYPES } from "../utils/const/enums.js";
+import {
+  USER_TYPES
+} from "../utils/const/enums.js";
 
 import { AppError } from "../utils/app_error.js";
 
@@ -11,13 +16,17 @@ export const authenticateUser = async ({
   email,
   name,
   provider = USER_TYPES.GUEST,
+
+  deviceId,
+  deviceName,
+  deviceType,
+  fcmToken,
 }) => {
 
   try {
 
     let user;
 
-    // find existing user
     if (
       provider !== USER_TYPES.GUEST &&
       email
@@ -28,7 +37,6 @@ export const authenticateUser = async ({
       });
     }
 
-    // create user if not exists
     if (!user) {
 
       const userId = uuidv4();
@@ -56,7 +64,51 @@ export const authenticateUser = async ({
       });
     }
 
-    // generate jwt
+    let device = await Device.findOne({
+      deviceId
+    });
+
+    if (!device) {
+
+      device = await Device.create({
+        userId: user._id,
+
+        deviceId,
+
+        deviceName,
+
+        deviceType,
+
+        fcmToken,
+      });
+
+    } else {
+
+      device.userId = user._id;
+
+      device.deviceName = deviceName;
+
+      device.deviceType = deviceType;
+
+      device.fcmToken = fcmToken;
+
+      await device.save();
+    }
+
+    user.device = device._id;
+
+    const alreadyPaired =
+      user.pairedDevices?.some(
+        (id) => id.toString() === device._id.toString()
+      );
+
+    if (!alreadyPaired) {
+
+      user.pairedDevices.push(device._id);
+    }
+
+    await user.save();
+
     const token = jwt.sign(
       {
         userId: user.userId,
@@ -81,7 +133,9 @@ export const authenticateUser = async ({
 
     throw new AppError(
       error.statusCode || 500,
+
       error.message || "Authentication failed",
+
       error.stack
     );
   }
