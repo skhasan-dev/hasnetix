@@ -13,6 +13,7 @@ import {
 import { AppError } from "../utils/app_error.js";
 
 export const authenticateUser = async ({
+  userId,
   email,
   name,
   provider = USER_TYPES.GUEST,
@@ -25,44 +26,48 @@ export const authenticateUser = async ({
 
   try {
 
-    let user;
+let user;
 
-    if (
-      provider !== USER_TYPES.GUEST &&
-      email
-    ) {
+// First priority -> existing userId
+if (userId) {
+  user = await User.findOne({ userId });
+}
 
-      user = await User.findOne({
-        email
-      });
-    }
+// Second priority -> existing email
+if (
+  !user &&
+  provider !== USER_TYPES.GUEST &&
+  email
+) {
+  user = await User.findOne({ email });
+}
 
-    if (!user) {
+if (!user) {
 
-      const userId = uuidv4();
+  const generatedUserId = uuidv4();
 
-      const now = new Date();
+  const now = new Date();
 
-      const nextMonth = new Date(
-        now.getFullYear(),
-        now.getMonth() + 1,
-        1
-      );
+  const nextMonth = new Date(
+    now.getFullYear(),
+    now.getMonth() + 1,
+    1
+  );
 
-      user = await User.create({
-        userId,
+  user = await User.create({
+    userId: generatedUserId,
 
-        type: provider,
+    type: provider,
 
-        email: email || undefined,
+    email: email || undefined,
 
-        name,
+    name,
 
-        usageResetAt: nextMonth,
+    usageResetAt: nextMonth,
 
-        monthlyUsage: 0,
-      });
-    }
+    monthlyUsage: 0,
+  });
+}
 
     let device = await Device.findOne({
       deviceId
