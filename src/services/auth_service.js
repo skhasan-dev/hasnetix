@@ -94,18 +94,18 @@ export const authenticateUser = async ({
 
       await device.save();
     }
-
+    
     user.device = device._id;
 
-    const alreadyPaired =
-      user.pairedDevices?.some(
-        (id) => id.toString() === device._id.toString()
-      );
+    // const alreadyPaired =
+    //   user.pairedDevices?.some(
+    //     (id) => id.toString() === device._id.toString()
+    //   );
 
-    if (!alreadyPaired) {
+    // if (!alreadyPaired) {
 
-      user.pairedDevices.push(device._id);
-    }
+    //   user.pairedDevices.push(device._id);
+    // }
 
     await user.save();
 
