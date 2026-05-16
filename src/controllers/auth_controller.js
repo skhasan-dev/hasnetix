@@ -13,6 +13,7 @@ export const authenticateController = async (
   try {
 
     const {
+      userId,
       email,
       name,
       provider,
@@ -45,6 +46,7 @@ export const authenticateController = async (
       user,
       token
     } = await authenticateUser({
+      userId,
       email,
       name,
 
