@@ -12,13 +12,16 @@ export const uploadFileController = async (
   try {
 
     const file = req.file;
+    const { senderDeviceId, targetDeviceIds } = req.body;
 
     const userId = req.user?.userId;
 
     const uploadedFile =
       await uploadFileService({
         file,
-        userId
+        userId, 
+        senderDeviceId,
+        targetDeviceIds,
       });
 
     res.status(201).json({
@@ -30,13 +33,13 @@ export const uploadFileController = async (
         originalName: uploadedFile.originalName,
         fileType: uploadedFile.fileType,
         size: uploadedFile.size,
-        downloadUrl: process.env.API_BASE_URL+'files/download/'+uploadedFile.fileId, ///uploadedFile.downloadUrl
+        downloadUrl: process.env.API_BASE_URL+'files/download/'+uploadedFile.fileId, 
         expiresAt: uploadedFile.expiresAt,
         createdAt: uploadedFile.createdAt
       }
     });
 
-  } catch (err) {
+  } catch (error) {
     return res.status(
       error.statusCode || 500
     ).json({
@@ -47,10 +50,10 @@ export const uploadFileController = async (
         error.message ||
         "Internal Server Error",
 
-      // stack:
-      //   process.env.NODE_ENV === "development"
-      //     ? error.stack
-      //     : undefined
+      stack:
+        process.env.NODE_ENV === "development"
+          ? error.stack
+          : undefined
     });
   }
 };

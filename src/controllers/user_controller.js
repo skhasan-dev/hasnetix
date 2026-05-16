@@ -13,13 +13,6 @@ export const getUserController = async (
 
     const { id } = req.params;
 
-    if (!id) {
-      throw new AppError(
-        401,
-        "Unauthorized"
-      );
-    }
-
     const user =
       await getUserService({
         userId: id
@@ -47,10 +40,10 @@ export const getUserController = async (
         error.message ||
         "Internal Server Error",
 
-      // stack:
-      //   process.env.NODE_ENV === "development"
-      //     ? error.stack
-      //     : undefined
+      stack:
+        process.env.NODE_ENV === "development"
+          ? error.stack
+          : undefined
     });
   }
 };

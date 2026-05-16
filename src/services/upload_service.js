@@ -1,6 +1,9 @@
 import { v4 as uuidv4 } from "uuid";
 import dotenv from "dotenv";
 
+import { getActivePairingService, getPairedDeviceTokensService } from './pairing_service.js';
+import { sendSilentPushToMany } from './fcm_service.js';
+
 dotenv.config();
 
 import {
@@ -31,10 +34,7 @@ import {
   AppError
 } from "../utils/app_error.js";
 
-export const uploadFileService = async ({
-  file,
-  userId
-}) => {
+export const uploadFileService = async ({file, userId, senderDeviceId, targetDeviceIds = null}) => {
 
   try {
 
@@ -136,6 +136,8 @@ export const uploadFileService = async ({
 
     if (savedFile) {
 
+      notifyPairedDevices({file:savedFile, senderDeviceId, targetDeviceIds});
+
       const category =
         fileType || FILE_TYPES.OTHER;
 
@@ -198,3 +200,36 @@ export const uploadFileService = async ({
     );
   }
 };
+
+export async function notifyPairedDevices({ file, senderDeviceId, targetDeviceIds = null }) {
+  if (!senderDeviceId) return;
+
+  let tokens;
+
+  if (targetDeviceIds?.length) {
+    // Resolve specific deviceIds → fcmTokens
+    const pairing = await getActivePairingService(senderDeviceId);
+    if (!pairing) return;
+
+    const allDevices = [pairing.initiator, ...pairing.receivers];
+    tokens = targetDeviceIds
+      .map((id) => allDevices.find((d) => d.deviceId === id)?.fcmToken)
+      .filter(Boolean);
+  } else {
+    // Default: notify all paired devices
+    tokens = await getPairedDeviceTokensService(senderDeviceId);
+  }
+
+  if (!tokens.length) return;
+
+  await sendSilentPushToMany({
+    fcmTokens: tokens,
+    data: {
+      type: 'FILE_READY',
+      fileId: file._id.toString(),
+      fileName: file.name ?? file.originalName ?? 'file',
+      fileSize: String(file.size ?? 0),
+      fileType: file.mimeType ?? '',
+    },
+  });
+}

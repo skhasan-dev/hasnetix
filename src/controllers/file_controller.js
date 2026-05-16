@@ -105,7 +105,8 @@ export const downloadFileController = async (
 
     const result =
       await downloadFileService({
-        fileId: req.params.id
+        fileId: req.params.id,
+        userId: req.user?.userId,
       });
 
     // cloudinary redirect
@@ -157,7 +158,8 @@ export const deleteFileByIdController = async (
       req.params;
 
     await deleteFileByIdService({
-      fileId: id
+      fileId: id,
+      userId: req.user?.userId,
     });
 
     return res.status(200).json({

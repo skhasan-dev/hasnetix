@@ -49,10 +49,18 @@ export const getUserFilesService = async ({
 };
 
 export const getFileByIdService = async ({
-  fileId
+  fileId,
+  userId
 }) => {
 
   try {
+
+    if (!userId) {
+      throw new AppError(
+        401,
+        "Unauthorized"
+      );
+    }
 
     if (!fileId) {
       throw new AppError(
@@ -62,7 +70,8 @@ export const getFileByIdService = async ({
     }
 
     const file = await File.findOne({
-      fileId
+      fileId,
+      userId
     }).select(
       `
       fileId
@@ -97,10 +106,18 @@ export const getFileByIdService = async ({
 };
 
 export const deleteFileByIdService = async ({
-  fileId
+  fileId,
+  userId
 }) => {
 
   try {
+
+    if (!userId) {
+      throw new AppError(
+        401,
+        "Unauthorized"
+      );
+    }
 
     if (!fileId) {
       throw new AppError(
@@ -110,7 +127,8 @@ export const deleteFileByIdService = async ({
     }
 
     const file = await File.findOne({
-      fileId
+      fileId,
+      userId
     });
 
     if (!file) {
@@ -137,7 +155,8 @@ export const deleteFileByIdService = async ({
 
     // delete from db
     await File.deleteOne({
-      fileId
+      fileId,
+      userId
     });
 
     return true;
@@ -203,10 +222,18 @@ export const deleteUserFilesService = async ({
 };
 
 export const downloadFileService = async ({
-  fileId
+  fileId,
+  userId
 }) => {
 
   try {
+
+    if (!userId) {
+      throw new AppError(
+        401,
+        "Unauthorized"
+      );
+    }
 
     if (!fileId) {
       throw new AppError(
@@ -216,7 +243,8 @@ export const downloadFileService = async ({
     }
 
     const file = await File.findOne({
-      fileId
+      fileId,
+      userId
     });
 
     if (!file) {

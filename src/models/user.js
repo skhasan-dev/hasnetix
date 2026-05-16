@@ -15,6 +15,12 @@ const userSchema = new mongoose.Schema({
     default: USER_TYPES.GUEST
   },
 
+  name: {
+    type: String,
+    trim: true,
+    default: null
+  },
+
   email: {
     type: String,
     lowercase: true,
@@ -36,7 +42,18 @@ const userSchema = new mongoose.Schema({
   usageResetAt: {
     type: Date,
     required: true
-  }
+  },
+
+  device: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Device',
+    default: null,
+  },
+
+  pairedDevices: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Device',
+  }]
 
 }, { timestamps: true });
 
