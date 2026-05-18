@@ -10,43 +10,42 @@ export const getUserFilesController = async (
   req,
   res
 ) => {
-
   try {
+    const {
+      type,
+      search,
+      page = 1,
+      limit = 10,
+    } = req.query;
 
-    const userId =
-      req.user?.userId;
+    const userId = req.user?.userId;
 
-    const files =
-      await getUserFilesService({
-        userId
-      });
-
-    return res.status(200).json({
-
-      status: true,
-
-      message:
-        "Files fetched successfully",
-
-      data: files
+    const files = await getUserFilesService({
+      userId,
+      type,
+      query: search,
+      page: Number(page),
+      limit: Number(limit),
     });
 
+    return res.status(200).json({
+      status: true,
+      message: "Files fetched successfully",
+      data: files,
+    });
   } catch (error) {
-
     return res.status(
       error.statusCode || 500
     ).json({
-
       status: false,
-
       message:
         error.message ||
         "Failed to fetch files",
 
       // stack:
-      //   process.env.NODE_ENV === "development"
-      //     ? error.stack
-      //     : undefined
+      // process.env.NODE_ENV === "development"
+      //   ? error.stack
+      //   : undefined,
     });
   }
 };

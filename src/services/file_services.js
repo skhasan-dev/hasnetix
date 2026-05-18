@@ -6,24 +6,39 @@ import { deleteFromCloudinary } from "./cloudinary_service.js";
 import { deleteFromR2 } from "./cloudflare_service.js";
 
 export const getUserFilesService = async ({
-  userId
+  userId,
+  type,
+  query,
+  page = 1,
+  limit = 10,
 }) => {
-
   try {
-
     if (!userId) {
-      throw new AppError(
-        401,
-        "Unauthorized"
-      );
+      throw new AppError(401, "Unauthorized");
     }
 
-    const files = await File.find({
-      userId
-    })
+    const filter = {
+      userId,
+    };
+
+    // filter by file type
+    if (type) {
+      filter.fileType = type;
+    }
+
+    // search by original file name
+    if (query) {
+      filter.originalName = {
+        $regex: query,
+        $options: "i",
+      };
+    }
+
+    const files = await File.find(filter)
+      .skip((page - 1) * limit)
+      .limit(limit)
       .sort({ createdAt: -1 })
-      .select(
-        `
+      .select(`
         fileId
         userId
         originalName
@@ -33,13 +48,20 @@ export const getUserFilesService = async ({
         status
         expiresAt
         createdAt
-        `
-      );
+      `);
 
-    return files;
+    const total = await File.countDocuments(filter);
 
+    return {
+      files,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   } catch (error) {
-
     throw new AppError(
       error.statusCode || 500,
       error.message || "Failed to fetch user files",
