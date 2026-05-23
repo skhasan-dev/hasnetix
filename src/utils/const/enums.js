@@ -32,3 +32,12 @@ export const DEVICE_TYPE = Object.freeze({
   MOBILE: "mobile",
   DESKTOP: "desktop",
 });
+
+export const NOTIFICATION_TYPE = Object.freeze({
+  NOTIFICATION: "notification",
+  DEVICE_PAIRED: "device_paired",
+  FILE_UPLOADED: "file_uploaded",
+  FILE_DOWNLOADED: "file_downloaded",
+  FILE_EXPIRING_SOON: "file_expiring_soon",
+  FILE_EXPIRED: "file_expired",
+});
