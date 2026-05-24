@@ -12,7 +12,7 @@ import { DEVICE_TYPE, PAIRING_STATUS } from '../utils/const/enums.js';
 
 export async function createPairing(req, res, next) {
   try {
-    const { deviceId, deviceName, deviceType, fcmToken } = req.body;
+    const { userId, deviceId, deviceName, deviceType, fcmToken } = req.body;
 
     if (!deviceId || !deviceName || !deviceType || !fcmToken) {
       return res.status(400).json({
@@ -28,7 +28,7 @@ export async function createPairing(req, res, next) {
     }
 
     const pairing = await createPairingService({
-      userId: req.user?.userId ?? null,
+      userId: userId ?? null,
       deviceId,
       deviceName,
       deviceType,
@@ -53,7 +53,7 @@ export async function createPairing(req, res, next) {
 
 export async function claimPairing(req, res, next) {
   try {
-    const { code, deviceId, deviceName, deviceType, fcmToken } = req.body;
+    const { code, deviceId, deviceName, deviceType, fcmToken, userId } = req.body;
 
     if (!code || !deviceId || !deviceName || !deviceType || !fcmToken) {
       return res.status(400).json({
@@ -64,7 +64,7 @@ export async function claimPairing(req, res, next) {
 
     const pairing = await claimPairingService({
       code,
-      userId: req.user?.userId ?? null,
+      userId: userId ?? null,
       deviceId,
       deviceName,
       deviceType,
