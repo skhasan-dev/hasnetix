@@ -57,79 +57,181 @@ export async function createPairingService({ userId, deviceId, deviceName, devic
  *
  * FIX: was using Pairing.find() (returns array) — changed to findOne().
  * FIX: AppError argument order corrected throughout.
- */
-export async function claimPairingService({ code, userId, deviceId, deviceName, deviceType, fcmToken }) {
+ */export async function claimPairingService({
+  code,
+  userId,
+  deviceId,
+  deviceName,
+  deviceType,
+  fcmToken,
+}) {
 
-  const pairing = await Pairing.findOne({ code, status: { $in: [PAIRING_STATUS.PENDING, PAIRING_STATUS.ACTIVE] } });
- 
-  if (!pairing) {
-    throw new AppError(404, 'Invalid or expired pairing code.');
-  }
- 
-  if (pairing.initiator.deviceId === deviceId) {
-    throw new AppError(400, 'A device cannot pair with itself.');
-  }
-
-  if (!Object.values(DEVICE_TYPE).includes(deviceType)) {
-    throw new AppError(400, 'deviceType must be mobile or desktop.');
-  }
- 
-  // Guard: prevent the same receiver joining twice
-  const alreadyJoined = pairing.receivers.some((r) => r.deviceId === deviceId);
-  if (alreadyJoined) {
-    throw new AppError(409, 'This device has already claimed this pairing code.');
-  }
- 
-  // Guard: cap receivers
-  if (pairing.receivers.length >= MAX_RECEIVERS) {
-    throw new AppError(400, `This session already has the maximum of ${MAX_RECEIVERS} paired devices.`);
-  }
-
-const user = await User.findOne({ userId });
-
-if (user) {
-
-  const pairedDevice = await Device.findOne({
-    deviceId
+  const pairing = await Pairing.findOne({
+    code,
+    status: {
+      $in: [
+        PAIRING_STATUS.PENDING,
+        PAIRING_STATUS.ACTIVE,
+      ],
+    },
   });
 
-  if (pairedDevice) {
+  if (!pairing) {
+    throw new AppError(
+      404,
+      'Invalid or expired pairing code.',
+    );
+  }
+
+  // Prevent pairing with self
+  if (pairing.initiator.deviceId === deviceId) {
+    throw new AppError(
+      400,
+      'A device cannot pair with itself.',
+    );
+  }
+
+  // Validate device type
+  if (!Object.values(DEVICE_TYPE).includes(deviceType)) {
+    throw new AppError(
+      400,
+      'deviceType must be mobile or desktop.',
+    );
+  }
+
+  // Prevent duplicate joins
+  const alreadyJoined = pairing.receivers.some(
+    (receiver) => receiver.deviceId === deviceId,
+  );
+
+  if (alreadyJoined) {
+    throw new AppError(
+      409,
+      'This device has already claimed this pairing code.',
+    );
+  }
+
+  // Limit receiver count
+  if (pairing.receivers.length >= MAX_RECEIVERS) {
+    throw new AppError(
+      400,
+      `This session already has the maximum of ${MAX_RECEIVERS} paired devices.`,
+    );
+  }
+
+  // ─────────────────────────────────────────────
+  // Find users
+  // ─────────────────────────────────────────────
+
+  const initiatorUser = pairing.initiator.userId
+    ? await User.findOne({
+        userId: pairing.initiator.userId,
+      })
+    : null;
+
+  const receiverUser = userId
+    ? await User.findOne({
+        userId,
+      })
+    : null;
+
+  // ─────────────────────────────────────────────
+  // Find devices
+  // ─────────────────────────────────────────────
+
+  const initiatorDevice = await Device.findOne({
+    deviceId: pairing.initiator.deviceId,
+  });
+
+  const receiverDevice = await Device.findOne({
+    deviceId,
+  });
+
+  // ─────────────────────────────────────────────
+  // Add receiver device to initiator user
+  // ─────────────────────────────────────────────
+
+  if (initiatorUser && receiverDevice) {
 
     const alreadyPaired =
-      user.pairedDevices.some(
+      initiatorUser.pairedDevices.some(
         (id) =>
           id.toString() ===
-          pairedDevice._id.toString()
+          receiverDevice._id.toString(),
       );
 
     if (!alreadyPaired) {
 
-      user.pairedDevices.push(
-        pairedDevice._id
+      initiatorUser.pairedDevices.push(
+        receiverDevice._id,
       );
 
-      await user.save();
+      await initiatorUser.save();
     }
   }
-}
- 
-  // Push new receiver into the array
-  pairing.receivers.push({ userId: userId ?? null, deviceId, deviceName, deviceType, fcmToken });
-  pairing.status    = PAIRING_STATUS.ACTIVE;
-  pairing.expiresAt = new Date(Date.now() + ACTIVE_TTL_MS);
+
+  // ─────────────────────────────────────────────
+  // Add initiator device to receiver user
+  // ─────────────────────────────────────────────
+
+  if (receiverUser && initiatorDevice) {
+
+    const alreadyPaired =
+      receiverUser.pairedDevices.some(
+        (id) =>
+          id.toString() ===
+          initiatorDevice._id.toString(),
+      );
+
+    if (!alreadyPaired) {
+
+      receiverUser.pairedDevices.push(
+        initiatorDevice._id,
+      );
+
+      await receiverUser.save();
+    }
+  }
+
+  // ─────────────────────────────────────────────
+  // Add receiver to pairing session
+  // ─────────────────────────────────────────────
+
+  pairing.receivers.push({
+    userId: userId ?? null,
+    deviceId,
+    deviceName,
+    deviceType,
+    fcmToken,
+  });
+
+  pairing.status = PAIRING_STATUS.ACTIVE;
+
+  pairing.expiresAt = new Date(
+    Date.now() + ACTIVE_TTL_MS,
+  );
+
   await pairing.save();
- 
-  // Notify initiator — a new device joined
+
+  // ─────────────────────────────────────────────
+  // Notify initiator
+  // ─────────────────────────────────────────────
+
   sendSilentPush({
     fcmToken: pairing.initiator.fcmToken,
     data: {
-      type:       'PAIRING_CONFIRMED',
-      pairingId:  pairing._id.toString(),
+      type: 'PAIRING_CONFIRMED',
+      pairingId: pairing._id.toString(),
       deviceName,
       deviceType,
     },
-  }).catch((e) => console.error('[FCM] PAIRING_CONFIRMED error:', e));
- 
+  }).catch((e) => {
+    console.error(
+      '[FCM] PAIRING_CONFIRMED error:',
+      e,
+    );
+  });
+
   return pairing;
 }
 
