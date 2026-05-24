@@ -28,7 +28,7 @@ export async function createPairing(req, res, next) {
     }
 
     const pairing = await createPairingService({
-      userId: req.user?._id ?? null,
+      userId: req.user?.userId ?? null,
       deviceId,
       deviceName,
       deviceType,
@@ -64,7 +64,7 @@ export async function claimPairing(req, res, next) {
 
     const pairing = await claimPairingService({
       code,
-      userId: req.user?._id ?? null,
+      userId: req.user?.userId ?? null,
       deviceId,
       deviceName,
       deviceType,
